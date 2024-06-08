@@ -79,9 +79,9 @@ public class CameraPIDpixelsmovement extends LinearOpMode{
             double power = PIDControl(cX);
             double vertPower = PIDVertControl(cY);
             drivetrain.powerForward(power*0.5, (getDistance(width)-25)*0.05);
-            drivetrain.armPower(vertPower*0.1);
+            drivetrain.armPower(vertPower*0.2);
             telemetry.addData("Arm Rotate Output: ", vertPower*0.1);
-            telemetry.addData("Normalized Rotate Output: ", power*0.5 + (getDistance(width)-25)*0.05);
+            telemetry.addData("Normalized Movement Output: ", power + (getDistance(width)-25)*0.05);
             telemetry.addData("Coordinate", "(" + (int) cX + ", " + (int) cY + ")");
             telemetry.addData("Distance in Inch", (getDistance(width)));
             telemetry.update();

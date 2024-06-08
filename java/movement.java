@@ -45,4 +45,8 @@ public class movement {
         LeftDriveMotor.setPower(-output + addspeed);
         RightDriveMotor.setPower(output + addspeed);
     }
+    public void rcPower (float leftP, float rightP) {
+        LeftDriveMotor.setPower((double)leftP);
+        RightDriveMotor.setPower((double)rightP);
+    }
 }
