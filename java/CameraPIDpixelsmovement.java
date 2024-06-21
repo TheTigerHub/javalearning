@@ -30,26 +30,36 @@ import java.util.List;
 
 public class CameraPIDpixelsmovement extends LinearOpMode{
 
+
+    //pid stuff var
     double integralSum = 0;
     double Kp = PIDnumbertuning.Kp;
     double Ki = PIDnumbertuning.Ki;
     double Kd = PIDnumbertuning.Kd;
 
+
+    //drivetrain creatipn
     movement drivetrain = new movement();
 
+    //timer for I and D and last error for D
     ElapsedTime timer = new ElapsedTime();
     private double lastError = 0;
 
+
+    //init imu and variables
     private BHI260IMU imu;
     double cX = 0;
     double cY = 0;
     double width = 0;
 
+
+    //init camera
     private OpenCvCamera controlHubCam;
     private static final int CAMERA_WIDTH = 640;
     private static final int CAMERA_HEIGHT = 360;
     private static final double FOV = 80;
 
+    //init camera details
     public static final double objectWidthInRealWorldUnits = 2.75;
     public static final double focalLength = 728;
 
@@ -57,6 +67,7 @@ public class CameraPIDpixelsmovement extends LinearOpMode{
     @Override
     public void runOpMode() {
         drivetrain.init(hardwareMap);
+        //init imu gyro for pid
         imu = hardwareMap.get(BHI260IMU.class, "imu");
         RevHubOrientationOnRobot.LogoFacingDirection logoDirection = RevHubOrientationOnRobot.LogoFacingDirection.BACKWARD;
         RevHubOrientationOnRobot.UsbFacingDirection usbDirection = RevHubOrientationOnRobot.UsbFacingDirection.UP;
@@ -64,6 +75,7 @@ public class CameraPIDpixelsmovement extends LinearOpMode{
         imu.initialize(new IMU.Parameters(orientationOnRobot));
         imu.resetYaw();
 
+        //init open cv and make the ftc dashboard + make a video stream to dashboard
         initOpenCV();
         FtcDashboard dashboard = FtcDashboard.getInstance();
         telemetry = new MultipleTelemetry(telemetry, dashboard.getTelemetry());
@@ -73,48 +85,58 @@ public class CameraPIDpixelsmovement extends LinearOpMode{
         waitForStart();
 
         while (opModeIsActive()) {
+
+            //create object for pid angles
             YawPitchRollAngles orientation = imu.getRobotYawPitchRollAngles();
             telemetry.addData("Target IMU Angle", "test");
             telemetry.addData("Current IMU Angle", "test");
+            //set power variable
             double power = PIDControl(cX);
             double vertPower = PIDVertControl(cY);
+            //actually set power
             drivetrain.powerForward(power*0.5, (getDistance(width)-25)*0.05);
             drivetrain.armPower(vertPower*0.2);
+
+            //telemetry stuff
             telemetry.addData("Arm Rotate Output: ", vertPower*0.1);
             telemetry.addData("Normalized Movement Output: ", power + (getDistance(width)-25)*0.05);
             telemetry.addData("Coordinate", "(" + (int) cX + ", " + (int) cY + ")");
             telemetry.addData("Distance in Inch", (getDistance(width)));
             telemetry.update();
         }
-
+        //stop the camera stream
         controlHubCam.stopStreaming();
     }
 
     private void initOpenCV() {
 
+        //init open cv camera stuff
         int cameraMonitorViewId = hardwareMap.appContext.getResources().getIdentifier(
                 "cameraMonitorViewId", "id", hardwareMap.appContext.getPackageName());
-
+        //create camera
         controlHubCam = OpenCvCameraFactory.getInstance().createWebcam(
                 hardwareMap.get(WebcamName.class, "Webcam 1"), cameraMonitorViewId);
-
+        //set pipeline
         controlHubCam.setPipeline(new YellowBlobDetectionPipeline());
 
+        //start stream
         controlHubCam.openCameraDevice();
         controlHubCam.startStreaming(CAMERA_WIDTH, CAMERA_HEIGHT, OpenCvCameraRotation.UPRIGHT);
     }
+
+    //should be red (changed from yellow to red becasue of background)
     class YellowBlobDetectionPipeline extends OpenCvPipeline {
         @Override
         public Mat processFrame(Mat input) {
 
+            //mask the input
             Mat yellowMask = preprocessFrame(input);
 
             List<MatOfPoint> contours = new ArrayList<>();
             Mat hierarchy = new Mat();
             Imgproc.findContours(yellowMask, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
-
             MatOfPoint largestContour = findLargestContour(contours);
-
+            //detection stuff
             if (largestContour != null) {
 
                 Imgproc.drawContours(input, contours, contours.indexOf(largestContour), new Scalar(255, 0, 0), 2);
@@ -122,12 +144,15 @@ public class CameraPIDpixelsmovement extends LinearOpMode{
                 width = calculateWidth(largestContour);
 
 
+                //lables
                 String widthLabel = "Width: " + (int) width + " pixels";
                 Imgproc.putText(input, widthLabel, new Point(cX + 10, cY + 20), Imgproc.FONT_HERSHEY_SIMPLEX, 0.5, new Scalar(0, 255, 0), 2);
 
                 String distanceLabel = "Distance: " + String.format("%.2f", getDistance(width)) + " inches";
                 Imgproc.putText(input, distanceLabel, new Point(cX + 10, cY + 60), Imgproc.FONT_HERSHEY_SIMPLEX, 0.5, new Scalar(0, 255, 0), 2);
 
+
+                //find center x and center y for rotation and arm
                 Moments moments = Imgproc.moments(largestContour);
                 cX = moments.get_m10() / moments.get_m00();
                 cY = moments.get_m01() / moments.get_m00();
@@ -145,6 +170,7 @@ public class CameraPIDpixelsmovement extends LinearOpMode{
             Mat hsvFrame = new Mat();
             Imgproc.cvtColor(frame, hsvFrame, Imgproc.COLOR_BGR2HSV);
 
+            //very important BGR/HSV color
             Scalar lowerYellow = new Scalar(100, 100, 100);
             Scalar upperYellow = new Scalar(180, 255, 255);
 
